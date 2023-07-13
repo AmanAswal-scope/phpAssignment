@@ -1,0 +1,81 @@
+<?php
+require '../config/databaseconnection.php';
+
+class AdminPage
+{
+    private $con;
+    private $recordsPerPage = 3;
+
+    public function __construct()
+    {
+        session_start();
+        if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
+            header('Location: login.php');
+            exit;
+        }
+
+        $this->con = connect_db(); // calling db connection function.
+    }
+
+    public function render()
+    {
+        $page = isset($_GET['page']) && is_numeric($_GET['page']) ? $_GET['page'] : 1; // Current page number
+        $startFrom = ($page - 1) * $this->recordsPerPage; // Calculate the starting index for fetching records
+        $search = isset($_GET['search']) ? $_GET['search'] : ''; // Get the search term from the query string
+
+        $query = "SELECT * FROM user_details"; // Initial query to fetch all records
+        if (!empty($search)) {
+            $query .= " WHERE email LIKE '%$search%' OR phone_number LIKE '%$search%'"; // Add search condition to the query
+        }
+
+        $totalRecordsQuery = "SELECT COUNT(*) AS total FROM user_details"; // Query to count the total number of records
+        $result = mysqli_query($this->con, $totalRecordsQuery);
+        $row = mysqli_fetch_assoc($result);
+        $totalRecords = $row['total']; // Total number of records
+        $totalPages = ceil($totalRecords / $this->recordsPerPage); // Calculate the total number of pages
+        $query .= " LIMIT $startFrom, $this->recordsPerPage"; // Add pagination limits to the query
+        $result = mysqli_query($this->con, $query); // Execute the final query to fetch records
+
+        $html = '<table class="user-table">';
+        $html .= '<tr>
+            <th>first_name</th>
+            <th>last_name</th>
+            <th>address</th>
+            <th>ID</th>
+            <th>Email</th>
+            <th>Password</th>
+            <th>Contact Number</th>
+            <th>created_datetime</th>
+            </tr>';
+        while ($row = mysqli_fetch_assoc($result)) {
+            $html .= '<tr>';
+            $html .= '<td>' . $row['first_name'] . '</td>';
+            $html .= '<td>' . $row['last_name'] . '</td>';
+            $html .= '<td>' . $row['address'] . '</td>';
+            $html .= '<td>' . $row['id'] . '</td>';
+            $html .= '<td>' . $row['email'] . '</td>';
+            $html .= '<td>' . $row['password'] . '</td>';
+            $html .= '<td>' . $row['phone_number'] . '</td>';
+            $html .= '<td>' . $row['created_datetime'] . '</td>';
+            $html .= '</tr>';
+        }
+        $html .= '</table>';
+        $html .= '<div class="pagination">';
+        for ($i = 1; $i <= $totalPages; $i++) {
+            $html .= '<a href="admin.php?page=' . $i . '">' . $i . '</a> ';
+        }
+        $html .= '</div>';
+        $html .= '<form class="search-form" method="GET" action="admin.php">';
+        $html .= '<input type="text" name="search" placeholder="Search by email or phone number" value="' . $search . '">';
+        $html .= '<button type="submit">Search</button>';
+        $html .= '</form>';
+
+        mysqli_close($this->con);
+        echo $html;
+        require '../view/admin_view.php'; // importing admin_html page
+    }
+}
+
+$adminPage = new AdminPage();
+$adminPage->render();
+?> 
